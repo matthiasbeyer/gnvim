@@ -326,6 +326,7 @@ pub struct PopupmenuShow {
     pub selected: i64,
     pub row: u64,
     pub col: u64,
+    pub grid: u64,
 }
 
 impl From<Value> for PopupmenuShow {
@@ -335,6 +336,7 @@ impl From<Value> for PopupmenuShow {
         let selected = unwrap_i64!(args[1]);
         let row = unwrap_u64!(args[2]);
         let col = unwrap_u64!(args[3]);
+        let grid = unwrap_u64!(args[4]);
 
         let mut items = vec![];
         for item in unwrap_array!(args[0]) {
@@ -360,6 +362,7 @@ impl From<Value> for PopupmenuShow {
             selected,
             row,
             col,
+            grid,
         }
     }
 }
@@ -731,6 +734,30 @@ impl From<Value> for WildmenuShow {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct WindowPos {
+    pub grid: u64,
+    pub win: u64,
+    pub start_row: u64,
+    pub start_col: u64,
+    pub width: u64,
+    pub height: u64,
+}
+
+impl From<Value> for WindowPos {
+    fn from(args: Value) -> Self {
+        let args = unwrap_array!(args);
+        Self {
+            grid: unwrap_u64!(args[0]),
+            win: unwrap_u64!(args[1]),
+            start_row: unwrap_u64!(args[2]),
+            start_col: unwrap_u64!(args[3]),
+            width: unwrap_u64!(args[4]),
+            height: unwrap_u64!(args[5]),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub enum RedrawEvent {
     SetTitle(Vec<String>),
 
@@ -766,6 +793,10 @@ pub enum RedrawEvent {
     WildmenuShow(Vec<WildmenuShow>),
     WildmenuHide(),
     WildmenuSelect(Vec<i64>),
+
+    WindowPos(Vec<WindowPos>),
+    WindowHide(Vec<u64>),
+    WindowClose(Vec<u64>),
 
     Ignored(String),
     Unknown(String),
@@ -811,8 +842,11 @@ impl fmt::Display for RedrawEvent {
             RedrawEvent::WildmenuShow(..) => write!(fmt, "WildmenuShow"),
             RedrawEvent::WildmenuHide(..) => write!(fmt, "WildmenuHide"),
             RedrawEvent::WildmenuSelect(..) => write!(fmt, "WildmenuSelect"),
+            RedrawEvent::WindowPos(..) => write!(fmt, "WindowPos"),
+            RedrawEvent::WindowHide(..) => write!(fmt, "WindowHide"),
+            RedrawEvent::WindowClose(..) => write!(fmt, "WindowClose"),
             RedrawEvent::Ignored(..) => write!(fmt, "Ignored"),
-            RedrawEvent::Unknown(..) => write!(fmt, "Unknown"),
+            RedrawEvent::Unknown(e) => write!(fmt, "Unknown({})", e),
         }
     }
 }
@@ -968,23 +1002,6 @@ fn parse_notify(name: &str, args: Vec<Value>) -> Option<Notify> {
     }
 }
 
-/*
-GLOBALS:
-    ["set_title", title]
-    ["set_icon", icon]
-    ["mode_info_set", cursor_style_enabled, mode_info]
-    ["option_set", name, value]
-    ["mode_change", mode, mode_idx]
-    ["mouse_on"]
-    ["mouse_off"]
-    ["busy_on"]
-    ["busy_off"]
-    ["suspend"]
-    ["update_menu"]
-    ["bell"]
-    ["visual_bell"]
- */
-
 fn parse_single_redraw_event(cmd: &str, args: Vec<Value>) -> RedrawEvent {
     match cmd {
         "set_title" => RedrawEvent::SetTitle(
@@ -1059,8 +1076,23 @@ fn parse_single_redraw_event(cmd: &str, args: Vec<Value>) -> RedrawEvent {
         "wildmenu_select" => RedrawEvent::WildmenuSelect(
             args.into_iter().map(|v| unwrap_i64!(v[0])).collect(),
         ),
-        "mouse_on" | "mouse_off" => RedrawEvent::Ignored(cmd.to_string()),
+        "win_pos" => RedrawEvent::WindowPos(
+            args.into_iter().map(WindowPos::from).collect(),
+        ),
+        "win_hide" => RedrawEvent::WindowHide(
+            args.into_iter().map(|v| {
+                let v = unwrap_array!(v);
+                unwrap_u64!(v[0])
+            }).collect(),
+        ),
+        "win_close" => RedrawEvent::WindowClose(
+            args.into_iter().map(|v| {
+                let v = unwrap_array!(v);
+                unwrap_u64!(v[0])
+            }).collect(),
+        ),
 
+        "mouse_on" | "mouse_off" => RedrawEvent::Ignored(cmd.to_string()),
         _ => RedrawEvent::Unknown(cmd.to_string()),
     }
 }
@@ -1167,6 +1199,7 @@ pub(crate) fn parse_gnvim_event(
 
             GnvimEvent::PopupmenuShowMenuOnAllItems(b != 0)
         }
+        "DumpGrid" => GnvimEvent::DumpGrid,
         _ => GnvimEvent::Unknown(String::from(cmd)),
     };
 

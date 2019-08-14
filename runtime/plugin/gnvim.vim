@@ -39,6 +39,10 @@ function! gnvim#set_gui_colors()
     call rpcnotify(g:gnvim_channel_id, 'Gnvim', 'SetGuiColors', colors)
 endfunction
 
+function! DumpGrid()
+    call rpcnotify(g:gnvim_channel_id, 'Gnvim', 'DumpGrid')
+endfunction
+
 augroup GnvimColors
     autocmd!
     autocmd ColorScheme * call gnvim#set_gui_colors()

@@ -350,6 +350,24 @@ impl Row {
         self.rope = Some(Rope::new(" ".repeat(self.len), 0));
     }
 
+    pub fn grow(&mut self, new_size: usize) {
+        let extra = new_size - self.len();
+        self.len = new_size;
+        //self.row
+
+        let rope = self.rope.take().unwrap();
+        let rope = rope.concat(Rope::new(" ".repeat(extra), 0));
+        self.rope = Some(rope);
+    }
+
+    pub fn truncate(&mut self, new_size: usize) {
+        self.len = new_size;
+
+        let rope = self.rope.take().unwrap();
+        let (rope, _) = rope.split(new_size);
+        self.rope = Some(rope);
+    }
+
     /// Clears range from `from` to `to`.
     pub fn clear_range(&mut self, from: usize, to: usize) {
         let middle_len = to - from;

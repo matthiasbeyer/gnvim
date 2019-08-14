@@ -18,6 +18,13 @@ use crate::ui::grid::render;
 use crate::ui::grid::row::Row;
 use crate::ui::ui::HlDefs;
 
+pub struct GridMetrics {
+    pub rows: u64,
+    pub cols: u64,
+    pub cell_height: u64,
+    pub cell_width: u64,
+}
+
 pub enum ScrollDirection {
     Up,
     Down,
@@ -51,6 +58,7 @@ impl Display for MouseButton {
 /// Single grid in the neovim UI. This matches the `ui-linegrid` stuff in
 /// the ui.txt documentation for neovim.
 pub struct Grid {
+    pub id: u64,
     /// Our internal "widget". This is what is drawn to the screen.
     da: DrawingArea,
     /// EventBox to get mouse events for this grid.
@@ -65,20 +73,21 @@ pub struct Grid {
 }
 
 impl Grid {
-    pub fn new(_id: u64) -> Self {
+    pub fn new(id: u64, win: &gdk::Window, font: Font, line_space: i64, cols: usize, rows: usize) -> Self {
         let da = DrawingArea::new();
-        let ctx = Rc::new(RefCell::new(None));
+        let ctx =
+            Rc::new(RefCell::new(Some(Context::new(&da, win, font, line_space, cols, rows))));
 
         da.connect_configure_event(clone!(ctx => move |da, _| {
             let mut ctx = ctx.borrow_mut();
             if ctx.is_none() {
                 // On initial expose, we'll need to create our internal context,
                 // since this is the first time we'll have drawing area present...
-                *ctx = Some(Context::new(&da));
+                //*ctx = Some(Context::new(&da));
             } else {
                 // ...but if we already have context, our size is changing, so
                 // we'll need to update our internals.
-                ctx.as_mut().unwrap().update(&da);
+                //ctx.as_mut().unwrap().update(&da);
             }
 
             false
@@ -99,6 +108,7 @@ impl Grid {
         eb.add(&da);
 
         Grid {
+            id,
             da: da,
             eb: eb,
             context: ctx,
@@ -109,6 +119,14 @@ impl Grid {
 
     pub fn widget(&self) -> gtk::Widget {
         self.eb.clone().upcast()
+    }
+
+    pub fn dump_grid(&self) {
+        let mut ctx = self.context.borrow_mut();
+        let ctx = ctx.as_mut().unwrap();
+        for row in ctx.rows.iter() {
+            println!("'{}'", row.text());
+        }
     }
 
     pub fn flush(&self, hl_defs: &HlDefs) {
@@ -131,10 +149,11 @@ impl Grid {
         }
 
         // Update cursor color.
-        let row = ctx.rows.get(ctx.cursor.0 as usize).unwrap();
-        let leaf = row.leaf_at(ctx.cursor.1 as usize + 1);
-        let hl = hl_defs.get(&leaf.hl_id()).unwrap();
-        ctx.cursor_color = hl.foreground.unwrap_or(hl_defs.default_fg);
+        if let Some(row) = ctx.rows.get(ctx.cursor.0 as usize) {
+            let leaf = row.leaf_at(ctx.cursor.1 as usize + 1);
+            let hl = hl_defs.get(&leaf.hl_id()).unwrap();
+            ctx.cursor_color = hl.foreground.unwrap_or(hl_defs.default_fg);
+        }
 
         while let Some(area) = ctx.queue_draw_area.pop() {
             self.da.queue_draw_area(area.0, area.1, area.2, area.3);
@@ -351,11 +370,29 @@ impl Grid {
         }
     }
 
+    pub fn get_grid_metrics(&self) -> GridMetrics {
+        let mut ctx = self.context.borrow_mut();
+        let ctx = ctx.as_mut().unwrap();
+
+        let w = self.da.get_allocated_width();
+        let h = self.da.get_allocated_height();
+        let cols = (w / ctx.cell_metrics.width as i32) as u64;
+        let rows = (h / ctx.cell_metrics.height as i32) as u64;
+
+        GridMetrics {
+            rows,
+            cols,
+            cell_width: ctx.cell_metrics.width as u64,
+            cell_height: ctx.cell_metrics.height as u64,
+        }
+    }
+
     /// Calcualtes the current size of the grid.
     pub fn calc_size(&self) -> (i64, i64) {
         let mut ctx = self.context.borrow_mut();
         let ctx = ctx.as_mut().unwrap();
 
+        // TODO(ville): Dont relay on the drawingarea's size.
         let w = self.da.get_allocated_width();
         let h = self.da.get_allocated_height();
         let cols = (w / ctx.cell_metrics.width as i32) as i64;
@@ -364,15 +401,32 @@ impl Grid {
         (cols, rows)
     }
 
-    pub fn resize(&self, width: u64, height: u64) {
+    pub fn resize(&self, win: &gdk::Window, width: u64, height: u64) {
         let mut ctx = self.context.borrow_mut();
         let ctx = ctx.as_mut().unwrap();
 
-        // Clear internal grid (rows).
-        ctx.rows = vec![];
-        for _ in 0..height {
-            ctx.rows.push(Row::new(width as usize));
+        let width = width as usize;
+        let height = height as usize;
+
+        if ctx.rows.len() > height {
+            ctx.rows.truncate(height);
+        } else if ctx.rows.len() < height {
+            for _ in ctx.rows.len()..height {
+                ctx.rows.push(Row::new(width));
+            }
         }
+
+        if ctx.rows.get(0).unwrap().len() < width {
+            for row in ctx.rows.iter_mut() {
+                row.grow(width);
+            }
+        } else {
+            for row in ctx.rows.iter_mut() {
+                row.truncate(width);
+            }
+        }
+
+        ctx.update(&self.da, win, width, height);
     }
 
     pub fn clear(&self, hl_defs: &HlDefs) {
@@ -453,10 +507,15 @@ impl Grid {
 
     /// Set a new font and line space. This will likely change the cell metrics.
     /// Use `calc_size` to receive the updated size (cols and rows) of the grid.
-    pub fn update_cell_metrics(&self, font: Font, line_space: i64) {
+    pub fn update_cell_metrics(
+        &self,
+        font: Font,
+        line_space: i64,
+        win: &gdk::Window,
+    ) {
         let mut ctx = self.context.borrow_mut();
         let ctx = ctx.as_mut().unwrap();
-        ctx.update_metrics(font, line_space, &self.da);
+        ctx.update_metrics(font, line_space, &self.da, win);
     }
 
     /// Get the current line space value.
@@ -501,7 +560,7 @@ fn drawingarea_draw(cr: &cairo::Context, ctx: &mut Context) {
     cr.restore();
 
     // If we're not "busy", draw the cursor.
-    if !ctx.busy {
+    if !ctx.busy && ctx.active {
         let (x, y, w, h) = ctx.get_cursor_rect();
 
         cr.save();
