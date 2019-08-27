@@ -1,5 +1,7 @@
 use gtk::prelude::*;
 
+use neovim_lib::neovim_api::Window as NvimWindow;
+
 use ui::grid::Grid;
 
 pub struct Window {
@@ -10,16 +12,14 @@ pub struct Window {
     pub y: u64,
 
     /// Currently shown's grid id.
-    pub grid_id: u64,
-    pub id: u64,
+    pub grid_id: i64,
+    pub nvim_win: NvimWindow,
 }
 
 impl Window {
-    pub fn new(id: u64, fixed: gtk::Fixed, grid: &Grid) -> Self {
+    pub fn new(win: NvimWindow, fixed: gtk::Fixed, grid: &Grid) -> Self {
         let frame = gtk::Frame::new(None);
         fixed.put(&frame, 0, 0);
-
-        gtk::WidgetExt::set_name(&frame, &format!("Window #{}", id));
 
         let widget = grid.widget();
         frame.add(&widget);
@@ -28,7 +28,7 @@ impl Window {
             fixed,
             frame,
             grid_id: grid.id,
-            id,
+            nvim_win: win,
             x: 0,
             y: 0,
         }
@@ -42,15 +42,23 @@ impl Window {
         self.frame.set_size_request(w as i32, h as i32);
     }
 
-    pub fn show(&mut self) {
-        //if let Some(child) = self.frame.get_child() {
-            //self.frame.remove(&child);
-        //}
-
+    pub fn show(&self) {
         self.frame.show_all();
     }
 
     pub fn hide(&self) {
         self.frame.hide();
+    }
+}
+
+impl Drop for Window {
+    fn drop(&mut self) {
+        // TODO(ville): Test that we release all resources.
+        if let Some(child) = self.frame.get_child() {
+            // We dont want to destroy the child widget, so just remove the child from our
+            // container.
+            self.frame.remove(&child);
+        }
+        self.frame.destroy();
     }
 }

@@ -58,7 +58,7 @@ impl Display for MouseButton {
 /// Single grid in the neovim UI. This matches the `ui-linegrid` stuff in
 /// the ui.txt documentation for neovim.
 pub struct Grid {
-    pub id: u64,
+    pub id: i64,
     /// Our internal "widget". This is what is drawn to the screen.
     da: DrawingArea,
     /// EventBox to get mouse events for this grid.
@@ -73,28 +73,20 @@ pub struct Grid {
 }
 
 impl Grid {
-    pub fn new(id: u64, win: &gdk::Window, font: Font, line_space: i64, cols: usize, rows: usize) -> Self {
+    pub fn new(
+        id: i64,
+        win: &gdk::Window,
+        font: Font,
+        line_space: i64,
+        cols: usize,
+        rows: usize,
+    ) -> Self {
         let da = DrawingArea::new();
-        let ctx =
-            Rc::new(RefCell::new(Some(Context::new(&da, win, font, line_space, cols, rows))));
-
-        da.connect_configure_event(clone!(ctx => move |da, _| {
-            let mut ctx = ctx.borrow_mut();
-            if ctx.is_none() {
-                // On initial expose, we'll need to create our internal context,
-                // since this is the first time we'll have drawing area present...
-                //*ctx = Some(Context::new(&da));
-            } else {
-                // ...but if we already have context, our size is changing, so
-                // we'll need to update our internals.
-                //ctx.as_mut().unwrap().update(&da);
-            }
-
-            false
-        }));
+        let ctx = Rc::new(RefCell::new(Some(Context::new(
+            &da, win, font, line_space, cols, rows,
+        ))));
 
         da.connect_draw(clone!(ctx => move |_, cr| {
-            let ctx = ctx.clone();
             if let Some(ref mut ctx) = *ctx.borrow_mut() {
                 // After making sure we have our internal context, draw us (e.g.
                 // our drawingarea) to the screen!
@@ -119,14 +111,6 @@ impl Grid {
 
     pub fn widget(&self) -> gtk::Widget {
         self.eb.clone().upcast()
-    }
-
-    pub fn dump_grid(&self) {
-        let mut ctx = self.context.borrow_mut();
-        let ctx = ctx.as_mut().unwrap();
-        for row in ctx.rows.iter() {
-            println!("'{}'", row.text());
-        }
     }
 
     pub fn flush(&self, hl_defs: &HlDefs) {
@@ -374,14 +358,18 @@ impl Grid {
         let mut ctx = self.context.borrow_mut();
         let ctx = ctx.as_mut().unwrap();
 
-        let w = self.da.get_allocated_width();
-        let h = self.da.get_allocated_height();
-        let cols = (w / ctx.cell_metrics.width as i32) as u64;
-        let rows = (h / ctx.cell_metrics.height as i32) as u64;
+        // TODO(ville): At least on other than the base grid, we might want to get the metrics from
+        // the internal datastructures and not from calculations based on the drawingarea's size.
+        //let w = self.da.get_allocated_width();
+        //let h = self.da.get_allocated_height();
+        //let cols = (w / ctx.cell_metrics.width as i32) as u64;
+        //let rows = (h / ctx.cell_metrics.height as i32) as u64;
+
+        let row = ctx.rows.get(0).unwrap();
 
         GridMetrics {
-            rows,
-            cols,
+            rows: ctx.rows.len() as u64,
+            cols: row.len() as u64,
             cell_width: ctx.cell_metrics.width as u64,
             cell_height: ctx.cell_metrics.height as u64,
         }
@@ -415,6 +403,7 @@ impl Grid {
                 ctx.rows.push(Row::new(width));
             }
         }
+        println!("Resize {} {} {}", self.id, width, height);
 
         if ctx.rows.get(0).unwrap().len() < width {
             for row in ctx.rows.iter_mut() {
@@ -545,6 +534,13 @@ impl Grid {
         let ctx = ctx.as_mut().unwrap();
 
         ctx.busy = busy;
+    }
+}
+
+impl Drop for Grid {
+    fn drop(&mut self) {
+        // TODO(ville): Test that we release all resources.
+        self.eb.destroy();
     }
 }
 

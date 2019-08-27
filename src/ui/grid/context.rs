@@ -55,7 +55,6 @@ impl Context {
         cols: usize,
         rows: usize,
     ) -> Self {
-
         let pango_context = da.get_pango_context().unwrap();
 
         let font_desc = font.as_pango_font();
@@ -107,7 +106,13 @@ impl Context {
     }
 
     /// Updates internals that are dependant on the drawing area.
-    pub fn update(&mut self, da: &DrawingArea, win: &gdk::Window, cols: usize, rows: usize) {
+    pub fn update(
+        &mut self,
+        da: &DrawingArea,
+        win: &gdk::Window,
+        cols: usize,
+        rows: usize,
+    ) {
         let pctx = da.get_pango_context().unwrap();
         pctx.set_font_description(&self.cell_metrics.font.as_pango_font());
 
@@ -128,7 +133,6 @@ impl Context {
         self.cairo_context.restore();
 
         self.cairo_context = ctx;
-
     }
 
     /// Sets the cell metrics to be updated. If font or line_space is None,
