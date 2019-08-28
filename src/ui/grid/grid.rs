@@ -33,8 +33,8 @@ pub enum ScrollDirection {
 impl Display for ScrollDirection {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ScrollDirection::Up => write!(fmt, "ScrollWheelUp"),
-            ScrollDirection::Down => write!(fmt, "ScrollWheelDown"),
+            ScrollDirection::Up => write!(fmt, "up"),
+            ScrollDirection::Down => write!(fmt, "down"),
         }
     }
 }
@@ -48,9 +48,9 @@ pub enum MouseButton {
 impl Display for MouseButton {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            MouseButton::Left => write!(fmt, "Left"),
-            MouseButton::Middle => write!(fmt, "Middle"),
-            MouseButton::Right => write!(fmt, "Right"),
+            MouseButton::Left => write!(fmt, "left"),
+            MouseButton::Middle => write!(fmt, "middle"),
+            MouseButton::Right => write!(fmt, "right"),
         }
     }
 }

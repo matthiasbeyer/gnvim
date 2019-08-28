@@ -174,6 +174,10 @@ impl UI {
         overlay.add_overlay(&windows_container);
         overlay.add_overlay(&windows_float_container);
 
+        // TODO(ville): is pass through for windows_container required in any case?
+        //overlay.set_overlay_pass_through(&windows_container, true);
+        overlay.set_overlay_pass_through(&windows_float_container, true);
+
         // When resizing our window (main grid), we'll have to tell neovim to
         // resize it self also. The notify to nvim is send with a small delay,
         // so we don't spam it multiple times a second. source_id is used to
@@ -212,47 +216,7 @@ impl UI {
             false
         }));
 
-        // Mouse button press event.
-        grid.connect_mouse_button_press_events(
-            clone!(nvim => move |button, row, col| {
-                let mut nvim = nvim.borrow_mut();
-                let input = format!("<{}Mouse><{},{}>", button, col, row);
-                nvim.input(&input).expect("Couldn't send mouse input");
-
-                Inhibit(false)
-            }),
-        );
-
-        // Mouse button release events.
-        grid.connect_mouse_button_release_events(
-            clone!(nvim => move |button, row, col| {
-                let mut nvim = nvim.borrow_mut();
-                let input = format!("<{}Release><{},{}>", button, col, row);
-                nvim.input(&input).expect("Couldn't send mouse input");
-
-                Inhibit(false)
-            }),
-        );
-
-        // Mouse drag events.
-        grid.connect_motion_events_for_drag(
-            clone!(nvim => move |button, row, col| {
-                let mut nvim = nvim.borrow_mut();
-                let input = format!("<{}Drag><{},{}>", button, col, row);
-                nvim.input(&input).expect("Couldn't send mouse input");
-
-                Inhibit(false)
-            }),
-        );
-
-        // Scrolling events.
-        grid.connect_scroll_events(clone!(nvim => move |dir, row, col| {
-            let mut nvim = nvim.borrow_mut();
-            let input = format!("<{}><{},{}>", dir, col, row);
-            nvim.input(&input).expect("Couldn't send mouse input");
-
-            Inhibit(false)
-        }));
+        attach_grid_events(&grid, nvim.clone());
 
         // IMMulticontext is used to handle most of the inputs.
         let im_context = gtk::IMMulticontext::new();
@@ -638,6 +602,7 @@ fn handle_redraw_event(
                                 grid.set_mode(&mode);
                             }
                             grid.resize(&win, *width, *height);
+                            attach_grid_events(&grid, nvim.clone());
                             state.grids.insert(*id, grid);
                         }
                     },
@@ -700,10 +665,15 @@ fn handle_redraw_event(
                     // Set the background for our main window.
                     CssProviderExt::load_from_data(
                         &state.css_provider,
-                        format!("* {{
+                        format!(
+                            "* {{
                             background: #{bg};
-                        }}", bg=bg.to_hex()).as_bytes(),
-                    ).unwrap();
+                        }}",
+                            bg = bg.to_hex()
+                        )
+                        .as_bytes(),
+                    )
+                    .unwrap();
                 });
             }
             RedrawEvent::HlAttrDefine(evt) => {
@@ -1030,6 +1000,47 @@ fn handle_redraw_event(
             }
         }
     }
+}
+
+fn attach_grid_events(grid: &Grid, nvim: Rc<RefCell<Neovim>>) {
+    let id = grid.id;
+    // Mouse button press event.
+    grid.connect_mouse_button_press_events(
+        clone!(nvim => move |button, row, col| {
+            let mut nvim = nvim.borrow_mut();
+            nvim.input_mouse(&button.to_string(), "press", "", id, row as i64, col as i64).unwrap();
+
+            Inhibit(false)
+        }),
+    );
+
+    // Mouse button release events.
+    grid.connect_mouse_button_release_events(
+        clone!(nvim => move |button, row, col| {
+            let mut nvim = nvim.borrow_mut();
+            nvim.input_mouse(&button.to_string(), "release", "", id, row as i64, col as i64).unwrap();
+
+            Inhibit(false)
+        }),
+    );
+
+    // Mouse drag events.
+    grid.connect_motion_events_for_drag(
+        clone!(nvim => move |button, row, col| {
+            let mut nvim = nvim.borrow_mut();
+            nvim.input_mouse(&button.to_string(), "drag", "", id, row as i64, col as i64).unwrap();
+
+            Inhibit(false)
+        }),
+    );
+
+    // Scrolling events.
+    grid.connect_scroll_events(clone!(nvim => move |dir, row, col| {
+        let mut nvim = nvim.borrow_mut();
+        nvim.input_mouse("wheel", &dir.to_string(), "", id, row as i64, col as i64).unwrap();
+
+        Inhibit(false)
+    }));
 }
 
 fn keyname_to_nvim_key(s: &str) -> Option<&str> {
