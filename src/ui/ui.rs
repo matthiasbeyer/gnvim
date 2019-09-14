@@ -27,7 +27,7 @@ use crate::ui::font::Font;
 use crate::ui::grid::Grid;
 use crate::ui::popupmenu::Popupmenu;
 use crate::ui::tabline::Tabline;
-use crate::ui::window::Window;
+use crate::ui::window::{Window, MsgWindow};
 
 type Windows = HashMap<i64, Window>;
 type Grids = HashMap<i64, Grid>;
@@ -66,10 +66,12 @@ struct UIState {
     windows: Windows,
     /// Container for non-floating windows.
     windows_container: gtk::Fixed,
-    msg_grid_container: gtk::Fixed,
-    msg_grid_frame: gtk::Frame,
     /// Container for floating windows.
     windows_float_container: gtk::Fixed,
+    /// Container for the msg window/grid.
+    msg_window_container: gtk::Fixed,
+    /// Window for our messages grid.
+    msg_window: MsgWindow,
     /// All grids currently in the UI.
     grids: Grids,
     /// Highlight definitions.
@@ -173,17 +175,16 @@ impl UI {
             &windows_float_container,
             "Floating windows contianer",
         );
-        let msg_grid_container = gtk::Fixed::new();
+        let msg_window_container = gtk::Fixed::new();
         gtk::WidgetExt::set_name(
-            &msg_grid_container,
+            &msg_window_container,
             "Message grid contianer",
         );
         overlay.add_overlay(&windows_container);
         overlay.add_overlay(&windows_float_container);
+        overlay.add_overlay(&msg_window_container);
 
-        let msg_grid_frame = gtk::Frame::new(None);
-        msg_grid_container.put(&msg_grid_frame, 0, 0);
-        overlay.add_overlay(&msg_grid_container);
+        let msg_window = MsgWindow::new(msg_window_container.clone());
 
         // TODO(ville): is pass through for windows_container required in any case?
         //overlay.set_overlay_pass_through(&windows_container, true);
@@ -299,8 +300,8 @@ impl UI {
                 css_provider,
                 windows: Windows::new(),
                 windows_container,
-                msg_grid_container,
-                msg_grid_frame,
+                msg_window_container,
+                msg_window,
                 windows_float_container,
                 grids,
                 mode_infos: vec![],
@@ -439,38 +440,6 @@ fn handle_gnvim_event(
         GnvimEvent::CompletionMenuToggleInfo => {
             state.popupmenu.toggle_show_info()
         }
-        GnvimEvent::CursorTooltipLoadStyle(path) => {
-            if let Err(err) = state.cursor_tooltip.load_style(path.clone()) {
-                let mut nvim = nvim.borrow_mut();
-                nvim.command_async(&format!(
-                    "echom \"Cursor tooltip load style failed: '{}'\"",
-                    err
-                ))
-                .cb(|res| match res {
-                    Ok(_) => {}
-                    Err(err) => {
-                        println!("Failed to execute nvim command: {}", err)
-                    }
-                })
-                .call();
-            }
-        }
-        GnvimEvent::CursorTooltipShow(content, row, col) => {
-            state.cursor_tooltip.show(content.clone());
-
-            let grid = state.grids.get(&state.current_grid).unwrap();
-            let mut rect = grid.get_rect_for_cell(row, col);
-
-            let window = state.windows.get(&state.current_grid).unwrap();
-            rect.x += window.x as i32;
-            rect.y += window.y as i32;
-
-            state.cursor_tooltip.move_to(&rect);
-        }
-        GnvimEvent::CursorTooltipHide => state.cursor_tooltip.hide(),
-        GnvimEvent::CursorTooltipSetStyle(style) => {
-            state.cursor_tooltip.set_style(&style)
-        }
         GnvimEvent::PopupmenuWidth(width) => {
             state.popupmenu.set_width(width as i32);
         }
@@ -526,13 +495,13 @@ fn handle_gnvim_event(
                 state.cursor_tooltip.show(content.clone());
 
                 let grid = state.grids.get(&state.current_grid).unwrap();
-                let rect = grid.get_rect_for_cell(*row, *col);
+                let rect = grid.get_rect_for_cell(row, col);
 
                 state.cursor_tooltip.move_to(&rect);
             }
             GnvimEvent::CursorTooltipHide => state.cursor_tooltip.hide(),
             GnvimEvent::CursorTooltipSetStyle(style) => {
-                state.cursor_tooltip.set_style(style)
+                state.cursor_tooltip.set_style(&style)
             }
             _ => unreachable!(),
         },
@@ -1010,15 +979,7 @@ fn handle_redraw_event(
             RedrawEvent::MsgSetPos(evt) =>  {
                 evt.iter().for_each(|e| {
                     let grid = state.grids.get(&e.grid).unwrap();
-                    state.msg_grid_frame.add(&grid.widget());
-
-                    let metrics = grid.get_grid_metrics();
-                    let w = metrics.cols * metrics.cell_width;
-                    let h = metrics.rows * metrics.cell_height;
-
-                    state.msg_grid_frame.set_size_request(w as i32, h as i32);
-                    state.msg_grid_container.move_(&state.msg_grid_frame, 0, (metrics.cell_height * e.row) as i32);
-                    state.msg_grid_container.show_all();
+                    state.msg_window.set_pos(&grid, e.row);
                 });
             }
             RedrawEvent::Ignored(_) => (),
