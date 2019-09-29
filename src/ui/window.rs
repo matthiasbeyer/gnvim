@@ -77,7 +77,7 @@ impl Window {
         }
     }
 
-    pub fn set_external(&mut self, size: (i32, i32)) {
+    pub fn set_external(&mut self, parent: &gtk::Window, size: (i32, i32)) {
         if self.external_win.is_some() {
             return;
         }
@@ -85,8 +85,14 @@ impl Window {
         let win = gtk::Window::new(gtk::WindowType::Toplevel);
         self.fixed.remove(&self.frame);
         win.add(&self.frame);
+
         win.set_default_size(size.0, size.1);
         win.set_accept_focus(false);
+        win.set_deletable(false);
+        win.set_resizable(false);
+
+        win.set_transient_for(Some(parent));
+        win.set_attached_to(Some(parent));
 
         win.show_all();
 

@@ -971,6 +971,7 @@ fn handle_redraw_event(
             }
             RedrawEvent::WindowExternalPos(evt) => {
                 evt.iter().for_each(|evt| {
+                    let parent_win = window.clone().upcast::<gtk::Window>();
                     let grid = state.grids.get(&evt.grid).unwrap();
                     let windows_float_container =
                         state.windows_float_container.clone();
@@ -988,7 +989,7 @@ fn handle_redraw_event(
                     let width = grid_metrics.cols * grid_metrics.cell_width;
                     let height = grid_metrics.rows * grid_metrics.cell_height;
 
-                    window.set_external((width as i32, height as i32));
+                    window.set_external(&parent_win, (width as i32, height as i32));
                 });
             }
             RedrawEvent::WindowHide(evt) => {
