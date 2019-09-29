@@ -186,8 +186,7 @@ impl UI {
 
         let msg_window = MsgWindow::new(msg_window_container.clone());
 
-        // TODO(ville): is pass through for windows_container required in any case?
-        //overlay.set_overlay_pass_through(&windows_container, true);
+        overlay.set_overlay_pass_through(&windows_container, true);
         overlay.set_overlay_pass_through(&windows_float_container, true);
         overlay.set_overlay_pass_through(&msg_window_container, true);
 
