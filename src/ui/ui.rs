@@ -189,6 +189,7 @@ impl UI {
         // TODO(ville): is pass through for windows_container required in any case?
         //overlay.set_overlay_pass_through(&windows_container, true);
         overlay.set_overlay_pass_through(&windows_float_container, true);
+        overlay.set_overlay_pass_through(&msg_window_container, true);
 
         // When resizing our window (main grid), we'll have to tell neovim to
         // resize it self also. The notify to nvim is send with a small delay,
