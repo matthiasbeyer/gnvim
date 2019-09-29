@@ -19,8 +19,19 @@ impl MsgWindow {
     }
 
     pub fn set_pos(&self, grid: &Grid, row: u64) {
-        // TODO(ville): Remove grid from its parent?
-        self.frame.add(&grid.widget());
+        let w = grid.widget();
+
+        // Only add/change the child widget if its different
+        // from the previous one.
+        if let Some(child) = self.frame.get_child() {
+            if w != child {
+                self.frame.remove(&child);
+                w.unparent(); // Unparent the grid.
+                self.frame.add(&w);
+            }
+        } else {
+            self.frame.add(&w);
+        }
 
         let metrics = grid.get_grid_metrics();
         let w = metrics.cols * metrics.cell_width;
@@ -40,7 +51,7 @@ pub struct Window {
     pub x: u64,
     pub y: u64,
 
-    /// Currently shown's grid id.
+    /// Currently shown grid's id.
     pub grid_id: i64,
     pub nvim_win: NvimWindow,
 }
@@ -84,7 +95,7 @@ impl Drop for Window {
     fn drop(&mut self) {
         // TODO(ville): Test that we release all resources.
         if let Some(child) = self.frame.get_child() {
-            // We dont want to destroy the child widget, so just remove the child from our
+            // We don't want to destroy the child widget, so just remove the child from our
             // container.
             self.frame.remove(&child);
         }
