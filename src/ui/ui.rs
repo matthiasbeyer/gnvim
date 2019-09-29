@@ -980,7 +980,7 @@ fn handle_redraw_event(
                     state.windows.remove(&grid_id).unwrap(); // Drop window.
                 });
             }
-            RedrawEvent::MsgSetPos(evt) =>  {
+            RedrawEvent::MsgSetPos(evt) => {
                 evt.iter().for_each(|e| {
                     let grid = state.grids.get(&e.grid).unwrap();
                     state.msg_window.set_pos(&grid, e.row);

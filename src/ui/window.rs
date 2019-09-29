@@ -15,10 +15,7 @@ impl MsgWindow {
 
         fixed.put(&frame, 0, 0);
 
-        Self {
-            fixed,
-            frame,
-        }
+        Self { fixed, frame }
     }
 
     pub fn set_pos(&self, grid: &Grid, row: u64) {
@@ -28,9 +25,10 @@ impl MsgWindow {
         let metrics = grid.get_grid_metrics();
         let w = metrics.cols * metrics.cell_width;
         let h = metrics.rows * metrics.cell_height;
-        self.frame.set_size_request(w as i32, h  as i32);
+        self.frame.set_size_request(w as i32, h as i32);
 
-        self.fixed.move_(&self.frame, 0, (metrics.cell_height * row) as i32);
+        self.fixed
+            .move_(&self.frame, 0, (metrics.cell_height * row) as i32);
         self.fixed.show_all();
     }
 }
