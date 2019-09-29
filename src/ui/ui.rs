@@ -969,6 +969,28 @@ fn handle_redraw_event(
                     window.show();
                 });
             }
+            RedrawEvent::WindowExternalPos(evt) => {
+                evt.iter().for_each(|evt| {
+                    let grid = state.grids.get(&evt.grid).unwrap();
+                    let windows_float_container =
+                        state.windows_float_container.clone();
+                    let window =
+                        state.windows.entry(evt.grid).or_insert_with(|| {
+                            println!("Create new float window");
+                            Window::new(
+                                evt.win.clone(),
+                                windows_float_container,
+                                &grid,
+                            )
+                        });
+
+                    let grid_metrics = grid.get_grid_metrics();
+                    let width = grid_metrics.cols * grid_metrics.cell_width;
+                    let height = grid_metrics.rows * grid_metrics.cell_height;
+
+                    window.set_external((width as i32, height as i32));
+                });
+            }
             RedrawEvent::WindowHide(evt) => {
                 evt.iter().for_each(|grid_id| {
                     state.windows.get(&grid_id).unwrap().hide();

@@ -793,6 +793,22 @@ impl From<Value> for WindowFloatPos {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct WindowExternalPos {
+    pub grid: i64,
+    pub win: NvimWindow,
+}
+
+impl From<Value> for WindowExternalPos {
+    fn from(args: Value) -> Self {
+        let args = unwrap_array!(args);
+        Self {
+            grid: unwrap_i64!(args[0]),
+            win: NvimWindow::new(args[1].clone()),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub struct MsgSetPos {
     pub grid: i64,
     pub row: u64,
@@ -852,6 +868,7 @@ pub enum RedrawEvent {
 
     WindowPos(Vec<WindowPos>),
     WindowFloatPos(Vec<WindowFloatPos>),
+    WindowExternalPos(Vec<WindowExternalPos>),
     WindowHide(Vec<i64>),
     WindowClose(Vec<i64>),
     MsgSetPos(Vec<MsgSetPos>),
@@ -904,6 +921,7 @@ impl fmt::Display for RedrawEvent {
 
             RedrawEvent::WindowPos(..) => write!(fmt, "WindowPos"),
             RedrawEvent::WindowFloatPos(..) => write!(fmt, "WindowFloatPos"),
+            RedrawEvent::WindowExternalPos(..) => write!(fmt, "WindowExternalPos"),
             RedrawEvent::WindowHide(..) => write!(fmt, "WindowHide"),
             RedrawEvent::WindowClose(..) => write!(fmt, "WindowClose"),
             RedrawEvent::MsgSetPos(..) => write!(fmt, "MsgSetPos"),
@@ -1147,6 +1165,9 @@ fn parse_single_redraw_event(cmd: &str, args: Vec<Value>) -> RedrawEvent {
         ),
         "win_float_pos" => RedrawEvent::WindowFloatPos(
             args.into_iter().map(WindowFloatPos::from).collect(),
+        ),
+        "win_external_pos" => RedrawEvent::WindowExternalPos(
+            args.into_iter().map(WindowExternalPos::from).collect(),
         ),
         "win_hide" => RedrawEvent::WindowHide(
             args.into_iter()

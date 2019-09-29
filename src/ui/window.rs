@@ -48,6 +48,8 @@ pub struct Window {
     fixed: gtk::Fixed,
     frame: gtk::Frame,
 
+    external_win: Option<gtk::Window>,
+
     pub x: u64,
     pub y: u64,
 
@@ -67,6 +69,7 @@ impl Window {
         Self {
             fixed,
             frame,
+            external_win: None,
             grid_id: grid.id,
             nvim_win: win,
             x: 0,
@@ -74,7 +77,30 @@ impl Window {
         }
     }
 
+    pub fn set_external(&mut self, size: (i32, i32)) {
+        if self.external_win.is_some() {
+            return;
+        }
+
+        let win = gtk::Window::new(gtk::WindowType::Toplevel);
+        self.fixed.remove(&self.frame);
+        win.add(&self.frame);
+        win.set_default_size(size.0, size.1);
+        win.set_accept_focus(false);
+
+        win.show_all();
+
+        self.external_win = Some(win);
+    }
+
     pub fn set_position(&mut self, x: u64, y: u64, w: u64, h: u64) {
+
+        if let Some(win) = self.external_win.take() {
+            win.remove(&self.frame);
+            self.fixed.add(&self.frame);
+            win.close();
+        }
+
         self.x = x;
         self.y = y;
         self.fixed.move_(&self.frame, x as i32, y as i32);
