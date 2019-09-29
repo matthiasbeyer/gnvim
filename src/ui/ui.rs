@@ -931,9 +931,13 @@ fn handle_redraw_event(
                         state.grids.get(&evt.anchor_grid).unwrap();
 
                     let (x_offset, y_offset) = {
-                        let anchor_window =
-                            state.windows.get(&evt.anchor_grid).unwrap();
-                        (anchor_window.x, anchor_window.y)
+                        if evt.anchor_grid == 1 {
+                            (0, 0)
+                        } else {
+                            let anchor_window =
+                                state.windows.get(&evt.anchor_grid).unwrap();
+                            (anchor_window.x, anchor_window.y)
+                        }
                     };
 
                     let grid = state.grids.get(&evt.grid).unwrap();
