@@ -921,7 +921,9 @@ impl fmt::Display for RedrawEvent {
 
             RedrawEvent::WindowPos(..) => write!(fmt, "WindowPos"),
             RedrawEvent::WindowFloatPos(..) => write!(fmt, "WindowFloatPos"),
-            RedrawEvent::WindowExternalPos(..) => write!(fmt, "WindowExternalPos"),
+            RedrawEvent::WindowExternalPos(..) => {
+                write!(fmt, "WindowExternalPos")
+            }
             RedrawEvent::WindowHide(..) => write!(fmt, "WindowHide"),
             RedrawEvent::WindowClose(..) => write!(fmt, "WindowClose"),
             RedrawEvent::MsgSetPos(..) => write!(fmt, "MsgSetPos"),

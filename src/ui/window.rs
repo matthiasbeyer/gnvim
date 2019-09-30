@@ -100,7 +100,6 @@ impl Window {
     }
 
     pub fn set_position(&mut self, x: u64, y: u64, w: u64, h: u64) {
-
         if let Some(win) = self.external_win.take() {
             win.remove(&self.frame);
             self.fixed.add(&self.frame);

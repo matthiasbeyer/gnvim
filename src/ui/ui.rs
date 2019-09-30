@@ -989,7 +989,10 @@ fn handle_redraw_event(
                     let width = grid_metrics.cols * grid_metrics.cell_width;
                     let height = grid_metrics.rows * grid_metrics.cell_height;
 
-                    window.set_external(&parent_win, (width as i32, height as i32));
+                    window.set_external(
+                        &parent_win,
+                        (width as i32, height as i32),
+                    );
                 });
             }
             RedrawEvent::WindowHide(evt) => {
