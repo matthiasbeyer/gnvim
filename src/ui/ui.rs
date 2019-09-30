@@ -27,7 +27,7 @@ use crate::ui::font::Font;
 use crate::ui::grid::Grid;
 use crate::ui::popupmenu::Popupmenu;
 use crate::ui::tabline::Tabline;
-use crate::ui::window::{Window, MsgWindow};
+use crate::ui::window::{MsgWindow, Window};
 
 type Windows = HashMap<i64, Window>;
 type Grids = HashMap<i64, Grid>;
